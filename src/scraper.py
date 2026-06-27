@@ -2,9 +2,11 @@ import asyncio
 import json
 import os
 import logging
+import time
 from datetime import datetime
 from telethon import TelegramClient
 from telethon.tl.types import MessageMediaPhoto
+from telethon.errors import FloodWaitError, ChannelPrivateError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,12 +15,9 @@ API_ID = int(os.getenv("TELEGRAM_API_ID"))
 API_HASH = os.getenv("TELEGRAM_API_HASH")
 PHONE = os.getenv("TELEGRAM_PHONE")
 
-CHANNELS = [
-    "CheMed123",
-    "lobelia4cosmetics",
-    "tikvahpharma",
-]
+CHANNELS = ["CheMed123", "lobelia4cosmetics", "tikvahpharma"]
 
+os.makedirs("logs", exist_ok=True)
 logging.basicConfig(
     filename="logs/scraper.log",
     level=logging.INFO,
@@ -40,7 +39,11 @@ async def scrape_channel(client, channel_name, limit=200):
                 folder = f"data/raw/images/{channel_name}"
                 os.makedirs(folder, exist_ok=True)
                 image_path = f"{folder}/{msg.id}.jpg"
-                await client.download_media(msg.media, file=image_path)
+                try:
+                    await client.download_media(msg.media, file=image_path)
+                except Exception as e:
+                    logger.warning(f"Failed to download image {msg.id}: {e}")
+                    image_path = None
             messages.append({
                 "message_id": msg.id,
                 "channel_name": channel_name,
@@ -51,14 +54,20 @@ async def scrape_channel(client, channel_name, limit=200):
                 "views": msg.views or 0,
                 "forwards": msg.forwards or 0,
             })
+    except FloodWaitError as e:
+        logger.error(f"Rate limited on {channel_name}. Waiting {e.seconds}s")
+        print(f"Rate limited. Waiting {e.seconds} seconds...")
+        await asyncio.sleep(e.seconds)
+    except ChannelPrivateError:
+        logger.error(f"Channel {channel_name} is private or does not exist")
+        print(f"Error: Channel {channel_name} is private or not found")
     except Exception as e:
-        logger.error(f"Error scraping {channel_name}: {e}")
-        print(f"Error: {e}")
+        logger.error(f"Unexpected error scraping {channel_name}: {e}")
+        print(f"Error scraping {channel_name}: {e}")
     return messages
 
 
 async def main():
-    os.makedirs("logs", exist_ok=True)
     today = datetime.now().strftime("%Y-%m-%d")
     async with TelegramClient("session", API_ID, API_HASH) as client:
         await client.start(phone=PHONE)
@@ -70,8 +79,9 @@ async def main():
                 path = f"{folder}/{channel}.json"
                 with open(path, "w", encoding="utf-8") as f:
                     json.dump(messages, f, ensure_ascii=False, indent=2)
-                print(f"Saved {len(messages)} messages from {channel} to {path}")
+                print(f"Saved {len(messages)} messages from {channel}")
                 logger.info(f"Saved {len(messages)} messages from {channel}")
+            time.sleep(2)
 
 
 if __name__ == "__main__":
