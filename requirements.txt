@@ -9,4 +9,5 @@ dagster
 dagster-webserver
 ultralytics
 opencv-python
+sqlalchemy
 pytest
