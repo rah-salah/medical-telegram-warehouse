@@ -31,3 +31,18 @@ models:
         tests:
           - not_null
           - unique
+
+  - name: fct_image_detections
+    description: Image detections joined to messages with business image categorization
+    columns:
+      - name: detection_id
+        tests:
+          - not_null
+          - unique
+      - name: message_id
+        tests:
+          - not_null
+      - name: image_category
+        tests:
+          - accepted_values:
+              values: ['product_display', 'lifestyle', 'promotional', 'other']
