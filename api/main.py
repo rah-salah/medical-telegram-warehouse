@@ -66,14 +66,14 @@ def search_messages(
 def visual_content_report():
     with engine.connect() as conn:
         result = conn.execute(text(
-            "SELECT f.channel_name, COUNT(*) as total_images, "            "d.detected_class, COUNT(d.id) as detection_count "            "FROM fct_image_detections d "            "JOIN fct_messages f ON d.message_id = f.message_id "            "GROUP BY f.channel_name, d.detected_class "            "ORDER BY f.channel_name, detection_count DESC"
+            "SELECT channel_name, image_category, COUNT(*) as cnt, "            "ROUND(AVG(views)::numeric,1) as avg_views "            "FROM fct_image_detections "            "GROUP BY channel_name, image_category "            "ORDER BY channel_name, cnt DESC"
         ))
         rows = result.fetchall()
         seen = {}
         for r in rows:
             if r[0] not in seen:
-                seen[r[0]] = {"channel": r[0], "total_images": r[1],
-                               "top_detected_class": r[2], "detection_count": r[3]}
+                seen[r[0]] = {"channel": r[0], "total_images": r[2],
+                               "top_detected_class": r[1], "detection_count": r[2]}
         return list(seen.values())
 
 
